@@ -1,6 +1,7 @@
 name: pagetitle
 description: "Widget used to update application/page title "
 version: 0.0.1
+repository: https://github.com/hientrung/flutter_pagetitle
 
 environment:
   sdk: '>=3.2.3 <4.0.0'
