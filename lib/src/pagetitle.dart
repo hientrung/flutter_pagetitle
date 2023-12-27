@@ -6,9 +6,20 @@ import 'package:flutter/services.dart';
 ///The widget used to update application title when it created, disposed, or rebuild
 ///
 ///Can be used with multiple/nested PageTitle and the latest one used to update application title
+///
+/// [title] and [child] are required arguments.
 class PageTitle extends StatefulWidget {
+  /// A one-line description of this app for use in the window manager.
   final String title;
+
+  /// A color that the window manager should use to identify this app. Must be
+  /// an opaque color (i.e. color.alpha must be 255 (0xFF)), and must not be
+  /// null.
   final Color color;
+
+  /// The widget below this widget in the tree.
+  ///
+  /// {@macro flutter.widgets.ProxyWidget.child}
   final Widget child;
 
   const PageTitle({
@@ -21,6 +32,7 @@ class PageTitle extends StatefulWidget {
   @override
   State<PageTitle> createState() => _PageTitleState();
 
+  ///Get current title of application
   static String? current(BuildContext context) =>
       SharedAppData.getValue(context, _PageTitleData, () => _PageTitleData())
           .list
