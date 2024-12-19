@@ -1,6 +1,6 @@
 name: pagetitle
-description: "The widget used to update application title when it created, disposed, or rebuild"
-version: 0.0.2
+description: "A Flutter widget to dynamically update the application title."
+version: 0.0.3
 repository: https://github.com/hientrung/flutter_pagetitle
 
 environment:
