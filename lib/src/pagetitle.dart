@@ -3,101 +3,123 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-///The widget used to update application title when it created, disposed, or rebuild
+/// Updates the application title dynamically based on the currently displayed [PageTitle].
+/// Supports nested [PageTitle] widgets, using the title of the most recently built widget.
 ///
-///Can be used with multiple/nested PageTitle and the latest one used to update application title
+/// This widget listens to changes in the widget tree and updates the application's title
+/// accordingly.  It uses a unique ID for each [PageTitle] instance to manage nested titles
+/// correctly.  The title of the most recently built [PageTitle] widget is used as the
+/// application's title.
 ///
-/// [title] and [child] are required arguments.
+/// Example:
+///
+/// ```dart
+/// PageTitle(
+///   title: 'Home Page',
+///   child: Scaffold(
+///     appBar: AppBar(title: Text('Home')),
+///     body: Center(
+///       child: PageTitle(
+///         title: 'Product Details',
+///         child: Text('Product details'),
+///       ),
+///     ),
+///   ),
+/// );
+/// ```
+/// In this example, the application title will initially be "Home Page". When the inner
+/// `PageTitle` widget is built, the title will change to "Product Details".  When the inner
+/// `PageTitle` widget is removed from the tree, the title will revert back to "Home Page".
 class PageTitle extends StatefulWidget {
-  /// A one-line description of this app for use in the window manager.
+  /// The title to display in the application switcher.  This title will be used
+  /// as the application's title when this [PageTitle] widget is the most recently
+  /// built one in the widget tree.
   final String title;
 
-  /// A color that the window manager should use to identify this app. Must be
-  /// an opaque color (i.e. color.alpha must be 255 (0xFF)), and must not be
-  /// null.
-  final Color color;
-
-  /// The widget below this widget in the tree.
-  ///
-  /// {@macro flutter.widgets.ProxyWidget.child}
+  /// The child widget.  This can be any widget, including other nested [PageTitle]
+  /// widgets.
   final Widget child;
 
+  /// Creates a [PageTitle] widget.
+  ///
+  /// The [title] argument is required and specifies the title to use for the
+  /// application switcher. The [child] argument is also required and specifies the
+  /// child widget to display.
   const PageTitle({
     super.key,
     required this.title,
-    this.color = Colors.black,
     required this.child,
   });
 
   @override
   State<PageTitle> createState() => _PageTitleState();
 
-  ///Get current title of application
+  /// Retrieves the current title of the application.  This returns the title of
+  /// the most recently built [PageTitle] widget in the current context.  Returns
+  /// null if no [PageTitle] widget is found in the current context.
   static String? current(BuildContext context) =>
-      SharedAppData.getValue(context, _PageTitleData, () => _PageTitleData())
-          .list
-          .lastOrNull
-          ?.title;
+      _PageTitleData.of(context).current;
 }
 
 class _PageTitleState extends State<PageTitle> {
-  late final _PageTitleModel model;
+  static int idIndex = 0;
+  final int id = ++idIndex;
 
   @override
-  void initState() {
-    super.initState();
-    model = _PageTitleModel(widget.title, widget.color);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _PageTitleData.of(context).addTitle(id, widget.title);
   }
 
   @override
-  void didUpdateWidget(covariant PageTitle oldWidget) {
+  void didUpdateWidget(PageTitle oldWidget) {
     super.didUpdateWidget(oldWidget);
-    model.title = widget.title;
-    model.color = widget.color;
+    if (oldWidget.title != widget.title) {
+      _PageTitleData.of(context).updateTitle(id, widget.title);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    data.list.add(model); //it's Set so just added once
-    _maybeUpdate();
     return widget.child;
   }
 
   @override
-  void dispose() {
-    _maybeUpdate();
-    data.list.remove(model);
-    super.dispose();
+  void deactivate() {
+    _PageTitleData.of(context).removeTitle(id);
+    super.deactivate();
   }
-
-  late final data =
-      SharedAppData.getValue(context, _PageTitleData, () => _PageTitleData());
-
-  void _maybeUpdate() {
-    if (data.updating || data.list.last != model) return;
-    data.updating = true;
-    //wait Router saved history or it completed changes
-    Timer.run(() {
-      data.updating = false;
-      final m = data.list.lastOrNull;
-      if (m != null) {
-        SystemChrome.setApplicationSwitcherDescription(
-            ApplicationSwitcherDescription(
-          label: m.title,
-          primaryColor: m.color.value,
-        ));
-      }
-    });
-  }
-}
-
-class _PageTitleModel {
-  String title;
-  Color color;
-  _PageTitleModel(this.title, this.color);
 }
 
 class _PageTitleData {
-  final list = <_PageTitleModel>{};
-  bool updating = false;
+  final List<({int id, String title})> _list = [];
+
+  void addTitle(int id, String title) {
+    _list.add((id: id, title: title));
+    _updateSystemChrome(title);
+  }
+
+  void updateTitle(int id, String newTitle) {
+    final i = _list.indexWhere((it) => it.id == id);
+    _list[i] = (id: id, title: newTitle);
+    if (i == _list.length - 1) _updateSystemChrome(newTitle);
+  }
+
+  void removeTitle(int id) {
+    _list.removeWhere((it) => it.id == id);
+    if (_list.isNotEmpty) _updateSystemChrome(_list.last.title);
+  }
+
+  String? get current => _list.lastOrNull?.title;
+
+  void _updateSystemChrome(String title) {
+    Timer.run(() {
+      SystemChrome.setApplicationSwitcherDescription(
+        ApplicationSwitcherDescription(label: title),
+      );
+    });
+  }
+
+  static _PageTitleData of(BuildContext context) =>
+      SharedAppData.getValue(context, _PageTitleData, () => _PageTitleData());
 }
